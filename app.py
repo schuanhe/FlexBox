@@ -210,10 +210,13 @@ def preview(path):
     if result:
         direct_link_enabled = result[0]
     conn.close()
-    
-    # 创建直链（如果启用）和预览链接（始终可用）
-    direct_link = url_for('serve_file', path=path, _external=True) if direct_link_enabled else None
-    preview_link = url_for('serve_preview', path=path, _external=True)
+
+    if direct_link_enabled:
+        direct_link = f'../file/{path}'
+    else:
+        direct_link = None
+
+    preview_link = f'../preview-file/{path}'
     
     return render_template('preview.html', 
                            file_path=path, 
