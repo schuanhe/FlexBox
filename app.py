@@ -179,7 +179,16 @@ def browse(path):
                 'name': part,
                 'path': '/'.join(parts[:i+1])
             })
-    
+
+    # 处理每个 item，加入链接信息
+    for item in items:
+        item_path = f"{path}/{item['name']}" if path else item['name']
+        item['preview_link'] = f"/preview/{item_path}"
+        if item.get('direct_link_enabled'):
+            item['direct_link'] = f"/file/{item_path}"
+        else:
+            item['direct_link'] = None
+
     return render_template('index.html', 
                            items=items, 
                            current_path=path, 
@@ -212,13 +221,13 @@ def preview(path):
     conn.close()
 
     if direct_link_enabled:
-        direct_link = f'../file/{path}'
+        direct_link = f'/file/{path}'  # 根目录下的路径
     else:
         direct_link = None
 
-    preview_link = f'../preview-file/{path}'
-    
-    return render_template('preview.html', 
+    preview_link = f'/preview-file/{path}'  # 根目录下的路径
+
+    return render_template('preview.html',
                            file_path=path, 
                            file_name=file_name, 
                            file_type=file_type,
