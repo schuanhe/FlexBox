@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>访问统计 - 文件管理系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/zh.min.js"></script>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <div class="col-md-2 sidebar">
+                <div class="d-flex flex-column p-3 bg-light h-100">
+                    <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+                        <i class="bi bi-folder me-2"></i>
+                        <span class="fs-4">文件管理系统</span>
+                    </a>
+                    <hr>
+                    <ul class="nav nav-pills flex-column mb-auto">
+                        <li class="nav-item">
+                            <a href="/" class="nav-link link-dark">
+                                <i class="bi bi-house me-2"></i>
+                                文件浏览
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/stats" class="nav-link active" aria-current="page">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                访问统计
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 主内容区 -->
+            <div class="col-md-10 main-content">
+                <div class="container py-4">
+                    <h2 class="mb-4">访问统计</h2>
+                    
+                    <!-- 筛选条件 -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">数据筛选</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="filter-form" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="start-date" class="form-label">开始日期</label>
+                                    <input type="text" class="form-control date-picker" id="start-date" name="start_date">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="end-date" class="form-label">结束日期</label>
+                                    <input type="text" class="form-control date-picker" id="end-date" name="end_date">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="file-type" class="form-label">文件类型</label>
+                                    <select class="form-select" id="file-type" name="file_type">
+                                        <option value="">全部</option>
+                                        <option value="image">图片</option>
+                                        <option value="video">视频</option>
+                                        <option value="pdf">PDF</option>
+                                        <option value="text">文本</option>
+                                        <option value="office">办公文档</option>
+                                        <option value="other">其他</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="ip-address" class="form-label">IP地址</label>
+                                    <input type="text" class="form-control" id="ip-address" name="ip_address" placeholder="输入IP地址">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="group-by" class="form-label">时间分组</label>
+                                    <select class="form-select" id="group-by" name="group_by">
+                                        <option value="day">按日</option>
+                                        <option value="week">按周</option>
+                                        <option value="month">按月</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary me-2">应用筛选</button>
+                                    <button type="button" id="reset-filter" class="btn btn-outline-secondary">重置</button>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end justify-content-end">
+                                    <button type="button" id="clean-logs" class="btn btn-outline-danger me-2">清理旧日志</button>
+                                    <button type="button" id="clear-stats" class="btn btn-outline-danger">清空统计</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计卡片 -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">总访问次数</h5>
+                                    <p class="card-text fs-1 text-center" id="total-count">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 图表区域 -->
+                    <div class="row">
+                        <!-- 访问趋势 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">访问趋势</div>
+                                <div class="card-body">
+                                    <canvas id="time-trend-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- IP分布 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">IP分布</div>
+                                <div class="card-body">
+                                    <canvas id="ip-distribution-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 文件类型分布 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">文件类型分布</div>
+                                <div class="card-body">
+                                    <canvas id="file-type-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 热门文件 -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">访问最多的文件</div>
+                                <div class="card-body">
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>文件路径</th>
+                                                    <th>访问次数</th>
+                                                    <th>首次访问</th>
+                                                    <th>最近访问</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="top-files-table">
+                                                <!-- 数据将通过JavaScript填充 -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 图表实例
+        let timeTrendChart;
+        let ipDistributionChart;
+        let fileTypeChart;
+        
+        // 初始化日期选择器
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr('.date-picker', {
+                locale: 'zh',
+                dateFormat: 'Y-m-d',
+                allowInput: true
+            });
+            
+            // 初始化表单事件
+            initFormEvents();
+            
+            // 获取统计数据
+            fetchStats();
+        });
+        
+        // 初始化表单事件
+        function initFormEvents() {
+            // 筛选表单提交
+            document.getElementById('filter-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                fetchStats();
+            });
+            
+            // 重置筛选
+            document.getElementById('reset-filter').addEventListener('click', function() {
+                document.getElementById('filter-form').reset();
+                fetchStats();
+            });
+            
+            // 清理旧日志
+            document.getElementById('clean-logs').addEventListener('click', function() {
+                if (confirm('确定要清理旧的访问日志吗？这将删除配置中设定的时间之前的所有访问记录。')) {
+                    cleanOldLogs();
+                }
+            });
+            
+            // 清空统计
+            document.getElementById('clear-stats').addEventListener('click', function() {
+                if (confirm('确定要清空所有统计数据吗？这将删除所有的访问记录和统计信息，此操作不可恢复。')) {
+                    clearAllStats();
+                }
+            });
+        }
+        
+        // 清理旧日志
+        async function cleanOldLogs() {
+            try {
+                const response = await fetch('/api/clean-logs', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    fetchStats(); // 刷新统计数据
+                } else {
+                    alert('清理失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('清理日志失败:', error);
+                alert('清理日志失败，请查看控制台获取详细信息。');
+            }
+        }
+        
+        // 获取统计数据
+        async function fetchStats() {
+            try {
+                // 获取筛选参数
+                const form = document.getElementById('filter-form');
+                const formData = new FormData(form);
+                const params = new URLSearchParams();
+                
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        params.append(key, value);
+                    }
+                }
+                
+                const response = await fetch('/api/stats?' + params.toString());
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('获取统计数据失败:', error);
+            }
+        }
+        
+        // 更新仪表盘
+        function updateDashboard(data) {
+            // 更新总访问次数
+            document.getElementById('total-count').textContent = data.total_count;
+            
+            // 更新访问趋势图表
+            updateTimeTrendChart(data.time_trend);
+            
+            // 更新IP分布图表
+            updateIPDistributionChart(data.ip_distribution);
+            
+            // 更新文件类型分布图表
+            updateFileTypeChart(data.file_type_distribution);
+            
+            // 更新热门文件表格
+            updateTopFilesTable(data.top_files);
+        }
+        
+        // 更新访问趋势图表
+        function updateTimeTrendChart(trendData) {
+            const ctx = document.getElementById('time-trend-chart').getContext('2d');
+            
+            // 销毁旧图表
+            if (timeTrendChart) {
+                timeTrendChart.destroy();
+            }
+            
+            // 准备数据
+            const labels = trendData.map(item => item.date_group).reverse();
+            const data = trendData.map(item => item.count).reverse();
+            
+            // 创建新图表
+            timeTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '访问次数',
+                        data: data,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新IP分布图表
+        function updateIPDistributionChart(ipData) {
+            const ctx = document.getElementById('ip-distribution-chart').getContext('2d');
+            
+            // 销毁旧图表
+            if (ipDistributionChart) {
+                ipDistributionChart.destroy();
+            }
+            
+            // 准备数据
+            const labels = ipData.map(item => item.ip_address);
+            const data = ipData.map(item => item.count);
+            
+            // 创建新图表
+            ipDistributionChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(199, 199, 199, 0.7)',
+                            'rgba(83, 102, 255, 0.7)',
+                            'rgba(40, 159, 64, 0.7)',
+                            'rgba(210, 199, 199, 0.7)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新文件类型分布图表
+        function updateFileTypeChart(typeData) {
+            const ctx = document.getElementById('file-type-chart').getContext('2d');
+            
+            // 销毁旧图表
+            if (fileTypeChart) {
+                fileTypeChart.destroy();
+            }
+            
+            // 准备数据
+            const labels = typeData.map(item => {
+                const typeNames = {
+                    'image': '图片',
+                    'video': '视频',
+                    'pdf': 'PDF',
+                    'text': '文本',
+                    'office': '办公文档',
+                    'other': '其他'
+                };
+                return typeNames[item.file_type] || item.file_type;
+            });
+            const data = typeData.map(item => item.count);
+            
+            // 创建新图表
+            fileTypeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新热门文件表格
+        function updateTopFilesTable(files) {
+            const table = document.getElementById('top-files-table');
+            table.innerHTML = '';
+            
+            files.forEach(file => {
+                const row = document.createElement('tr');
+                const firstAccess = file.first_access ? new Date(file.first_access).toLocaleString() : '未知';
+                const lastAccess = file.last_access ? new Date(file.last_access).toLocaleString() : '未知';
+                
+                row.innerHTML = `
+                    <td>${file.file_path}</td>
+                    <td>${file.count}</td>
+                    <td>${firstAccess}</td>
+                    <td>${lastAccess}</td>
+                `;
+                table.appendChild(row);
+            });
+        }
+        
+        // 清空统计数据
+        async function clearAllStats() {
+            try {
+                const response = await fetch('/api/clear-stats', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    fetchStats(); // 刷新统计数据
+                } else {
+                    alert('清空失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('清空统计数据失败:', error);
+                alert('清空统计数据失败，请查看控制台获取详细信息。');
+            }
+        }
+        
+        // 每60秒刷新一次数据
+        setInterval(fetchStats, 60000);
+    </script>
+</body>
+</html>

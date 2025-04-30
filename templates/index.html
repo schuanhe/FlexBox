@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件管理系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <div class="col-md-2 sidebar">
+                <div class="d-flex flex-column p-3 bg-light h-100">
+                    <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+                        <i class="bi bi-folder me-2"></i>
+                        <span class="fs-4">文件管理系统</span>
+                    </a>
+                    <hr>
+                    <ul class="nav nav-pills flex-column mb-auto">
+                        <li class="nav-item">
+                            <a href="/" class="nav-link active" aria-current="page">
+                                <i class="bi bi-house me-2"></i>
+                                文件浏览
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/stats" class="nav-link link-dark">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                访问统计
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 主内容区 -->
+            <div class="col-md-10 main-content">
+                <div class="container py-4">
+                    <!-- 导航路径 -->
+                    <nav aria-label="breadcrumb" class="mb-4">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ url_for('browse') }}">根目录</a></li>
+                            {% for item in nav_path %}
+                            <li class="breadcrumb-item"><a href="{{ url_for('browse', path=item.path) }}">{{ item.name }}</a></li>
+                            {% endfor %}
+                        </ol>
+                    </nav>
+
+                    <!-- 文件列表 -->
+                    <div class="row row-cols-1 row-cols-md-4 g-4">
+                        {% for item in items %}
+                        <div class="col">
+                            <div class="card h-100 file-card">
+                                <div class="card-body">
+                                    {% if item.is_dir %}
+                                    <div class="file-icon"><i class="bi bi-folder-fill text-warning fs-1"></i></div>
+                                    <h5 class="card-title"><a href="{{ url_for('browse', path=current_path + '/' + item.name if current_path else item.name) }}" class="text-decoration-none">{{ item.name }}</a></h5>
+                                    {% else %}
+                                        {% if item.type == 'image' %}
+                                        <div class="file-icon"><i class="bi bi-file-image text-success fs-1"></i></div>
+                                        {% elif item.type == 'video' %}
+                                        <div class="file-icon"><i class="bi bi-file-play text-danger fs-1"></i></div>
+                                        {% elif item.type == 'pdf' %}
+                                        <div class="file-icon"><i class="bi bi-file-pdf text-danger fs-1"></i></div>
+                                        {% elif item.type == 'text' %}
+                                        <div class="file-icon"><i class="bi bi-file-text text-primary fs-1"></i></div>
+                                        {% elif item.type == 'office' %}
+                                        <div class="file-icon"><i class="bi bi-file-earmark-richtext text-info fs-1"></i></div>
+                                        {% else %}
+                                        <div class="file-icon"><i class="bi bi-file-earmark text-secondary fs-1"></i></div>
+                                        {% endif %}
+                                        <h5 class="card-title"><a href="{{ url_for('preview', path=current_path + '/' + item.name if current_path else item.name) }}" class="text-decoration-none">{{ item.name }}</a></h5>
+                                    {% endif %}
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            {% if not item.is_dir %}
+                                            大小: {{ (item.size / 1024)|round(2) }} KB<br>
+                                            {% endif %}
+                                            修改时间: {{ item.modified }}
+                                        </small>
+                                    </p>
+                                </div>
+                                {% if not item.is_dir %}
+                                <div class="card-footer">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <a href="{{ url_for('preview', path=current_path + '/' + item.name if current_path else item.name) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> 预览</a>
+                                        {% if item.direct_link_enabled %}
+                                        <a href="{{ item.direct_link }}" class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-link-45deg"></i> 直链</a>
+                                        {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary" disabled><i class="bi bi-link-45deg"></i> 直链已禁用</button>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-dark dropdown-toggle" type="button" id="dropdownMenuButton{{ loop.index }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-gear"></i> 操作
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton{{ loop.index }}">
+                                                <li><a class="dropdown-item toggle-direct-link" href="#" data-path="{{ item.rel_path }}" data-enabled="{{ item.direct_link_enabled|int }}">{{ '禁用' if item.direct_link_enabled else '启用' }}直链</a></li>
+                                                <li><a class="dropdown-item rename-file" href="#" data-path="{{ item.rel_path }}" data-name="{{ item.name }}">重命名</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item delete-file text-danger" href="#" data-path="{{ item.rel_path }}">删除文件</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    
+    <!-- 模态框 -->
+    <!-- 重命名模态框 -->
+    <div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="renameModalLabel">重命名文件</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="renameForm">
+                        <input type="hidden" id="oldPath" name="oldPath">
+                        <div class="mb-3">
+                            <label for="newName" class="form-label">新文件名</label>
+                            <input type="text" class="form-control" id="newName" name="newName" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmRename">确认重命名</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 确认删除模态框 -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要删除此文件吗？此操作不可恢复，并且会同时删除所有相关的访问统计数据。</p>
+                    <p id="deleteFileName" class="fw-bold"></p>
+                    <input type="hidden" id="deleteFilePath">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDelete">确认删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 切换直链状态
+        document.querySelectorAll('.toggle-direct-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filePath = this.getAttribute('data-path');
+                const currentEnabled = parseInt(this.getAttribute('data-enabled'));
+                const newEnabled = currentEnabled ? 0 : 1;
+                
+                fetch('/api/toggle-direct-link', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        file_path: filePath,
+                        enabled: newEnabled
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 刷新页面以显示更新后的状态
+                        window.location.reload();
+                    } else {
+                        alert('操作失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失败，请查看控制台获取详细信息。');
+                });
+            });
+        });
+        
+        // 重命名文件
+        const renameModal = new bootstrap.Modal(document.getElementById('renameModal'));
+        
+        document.querySelectorAll('.rename-file').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filePath = this.getAttribute('data-path');
+                const fileName = this.getAttribute('data-name');
+                
+                document.getElementById('oldPath').value = filePath;
+                document.getElementById('newName').value = fileName;
+                
+                renameModal.show();
+            });
+        });
+        
+        document.getElementById('confirmRename').addEventListener('click', function() {
+            const oldPath = document.getElementById('oldPath').value;
+            const newName = document.getElementById('newName').value;
+            
+            if (!newName.trim()) {
+                alert('请输入有效的文件名');
+                return;
+            }
+            
+            fetch('/api/rename-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    old_path: oldPath,
+                    new_name: newName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renameModal.hide();
+                    // 刷新页面以显示更新后的文件名
+                    window.location.reload();
+                } else {
+                    alert('重命名失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('重命名失败，请查看控制台获取详细信息。');
+            });
+        });
+        
+        // 删除文件
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        
+        document.querySelectorAll('.delete-file').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filePath = this.getAttribute('data-path');
+                const fileName = filePath.split('/').pop();
+                
+                document.getElementById('deleteFileName').textContent = fileName;
+                document.getElementById('deleteFilePath').value = filePath;
+                
+                deleteModal.show();
+            });
+        });
+        
+        document.getElementById('confirmDelete').addEventListener('click', function() {
+            const filePath = document.getElementById('deleteFilePath').value;
+            
+            fetch('/api/delete-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    file_path: filePath
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    deleteModal.hide();
+                    // 刷新页面以移除已删除的文件
+                    window.location.reload();
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('删除失败，请查看控制台获取详细信息。');
+            });
+        });
+    </script>
+</body>
+</html>
